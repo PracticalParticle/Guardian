@@ -1,0 +1,87 @@
+name: Certora Formal Verification
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          java-package: jre
+
+      - name: Install Certora CLI
+        run: pip install certora-cli==7.3.0
+
+      - name: Install Solidity Compiler
+        run: |
+          pip install solc-select
+          solc-select install 0.8.2
+          solc-select use 0.8.2
+
+      - name: Verify Contracts
+        env:
+          CERTORAKEY: ${{ secrets.CERTORAKEY }}
+        run: |
+          echo "Running Certora Prover on SecureOwnable contract..."
+          certoraRun certora/conf/secureOwnable.conf
+          
+          echo "Running Certora Prover on MultiPhaseSecureOperation library..."
+          certoraRun certora/conf/multiPhaseOperation.conf
+
+  mutation-testing:
+    runs-on: ubuntu-latest
+    needs: verify
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          java-package: jre
+
+      - name: Install Certora CLI
+        run: pip install certora-cli==7.3.0
+
+      - name: Install Solidity Compiler
+        run: |
+          pip install solc-select
+          solc-select install 0.8.2
+          solc-select use 0.8.2
+
+      - name: Run Mutation Testing
+        env:
+          CERTORAKEY: ${{ secrets.CERTORAKEY }}
+        run: |
+          echo "Running mutation testing for SecureOwnable..."
+          certoraMutate --conf certora/conf/secureOwnable.conf --rule_sanity minimal
+          
+          echo "Running mutation testing for MultiPhaseSecureOperation..."
+          certoraMutate --conf certora/conf/multiPhaseOperation.conf --rule_sanity minimal 
