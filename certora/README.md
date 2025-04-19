@@ -16,10 +16,20 @@ The following specification files are provided:
 - `secureOwnableInvariants.spec`: Verifies invariants that should always hold for the `SecureOwnable` contract
 - `multiPhaseOperation.spec`: Verifies the security properties of the `MultiPhaseSecureOperation` library
 - `propertyBasedTesting.spec`: Contains property-based tests with multiple inputs and edge cases
+- `environment_model.spec`: Provides standard environment models and assumptions for verification
+- `security_properties.spec`: Focused on critical security properties with high assurance requirements
 
 ## Harness Contracts
 
 - `MultiPhaseSecureOperationHarness.sol`: Harness contract to test the `MultiPhaseSecureOperation` library functions in isolation
+- `SecureOwnableHarness.sol`: Harness contract to expose internal state and functions of the `SecureOwnable` contract
+
+## Configuration Files
+
+- `secureOwnable.conf`: Basic verification of SecureOwnable contract
+- `multiPhaseOperation.conf`: Basic verification of MultiPhaseSecureOperation library
+- `default.conf`: Comprehensive verification of all contracts and specifications
+- `security.conf`: Focused security verification with higher timeouts and more thorough analysis
 
 ## Running Locally
 
@@ -48,12 +58,17 @@ To run the formal verification locally, you need to:
    certoraRun certora/conf/multiPhaseOperation.conf
    ```
 
-5. Or run comprehensive verification:
+5. For security-focused verification:
+   ```bash
+   certoraRun certora/conf/security.conf
+   ```
+
+6. Or run comprehensive verification:
    ```bash
    certoraRun certora/conf/default.conf
    ```
 
-6. To verify specific rules only:
+7. To verify specific rules only:
    ```bash
    certoraRun certora/conf/secureOwnable.conf --rule ownershipDoesNotChangeWithoutTransfer
    ```
@@ -65,10 +80,12 @@ The project includes a GitHub Actions workflow that automatically runs formal ve
 ### Features of the CI/CD Workflow:
 
 - **Matrix Strategy**: Runs verification for each contract/library in parallel
+- **Security Verification**: Dedicated job for security-critical properties
 - **Comprehensive Verification**: Runs all specs on push to main branch
 - **Artifact Upload**: Saves verification reports as build artifacts
 - **Custom Verification**: Supports running specific specs through workflow dispatch
 - **Path Filtering**: Only triggers on relevant file changes
+- **Security-Only Mode**: Option to run only security verification
 
 ### Setting Up CI/CD:
 
@@ -76,11 +93,13 @@ The project includes a GitHub Actions workflow that automatically runs formal ve
 
 2. The workflow will automatically run on pull requests and pushes to main when relevant files change.
 
-3. To manually trigger verification of a specific spec:
+3. To manually trigger verification:
    - Go to the Actions tab in your repository
    - Select "Certora Formal Verification" workflow
    - Click "Run workflow"
-   - Enter the spec file path and/or contract name if desired
+   - Options:
+     - Enter the spec file path and/or contract name if desired
+     - Check "Run only security verification" for focused security runs
 
 ## Mutation Testing
 
@@ -89,9 +108,28 @@ The CI/CD workflow also includes mutation testing to estimate the coverage of th
 ```bash
 certoraMutate --conf certora/conf/secureOwnable.conf --num_mutations 5
 certoraMutate --conf certora/conf/multiPhaseOperation.conf --num_mutations 5
+certoraMutate --conf certora/conf/security.conf --num_mutations 3
 ```
 
 The mutation testing results are saved as artifacts in the CI/CD workflow.
+
+## Environment Models
+
+The project includes a dedicated environment model specification that provides standard assumptions and constraints for verification. This helps ensure consistency across different specifications.
+
+Key features of environment models:
+- Standard role-based environments (owner, broadcaster, recovery, other)
+- Time-based environments for timelock testing
+- Ghost constants for standardized parameter ranges
+- Common filter definitions for invariants
+
+## Security-Focused Verification
+
+For critical security assurance, we provide dedicated security verification:
+
+1. **Security Properties**: The `security_properties.spec` file contains high-assurance properties focused exclusively on critical security aspects
+2. **Enhanced Configuration**: The `security.conf` file uses higher timeouts and more thorough analysis settings
+3. **CI/CD Integration**: Security verification runs as a separate job for focused analysis
 
 ## Writing New Specifications
 
@@ -99,8 +137,9 @@ When adding new contracts to the project, consider adding Certora specifications
 
 1. Create a new `.spec` file in the `specs/` directory
 2. Create a new `.conf` file in the `conf/` directory
-3. Add the verification job to the GitHub Actions workflow
-4. Consider creating a harness contract for libraries or complex contracts
+3. Consider creating a harness contract in the `harness/` directory
+4. Import the environment model for standardized assumptions
+5. Add the verification job to the GitHub Actions workflow
 
 ## Best Practices
 
@@ -108,7 +147,8 @@ When adding new contracts to the project, consider adding Certora specifications
 - **Modular Specifications**: Split specifications into rules, invariants, and property-based tests
 - **Harness Contracts**: Use harness contracts for libraries and complex contracts
 - **Edge Cases**: Test edge cases with property-based testing
-- **Incremental Approach**: Start with basic properties and gradually add more complex ones
+- **Environment Models**: Use the shared environment model for consistent assumptions
+- **Graduated Verification**: Start with basic specs and gradually add more complex properties
 - **Rule Isolation**: Test individual rules before running comprehensive verification
 - **Cache Results**: Use caching to speed up verification of unchanged code
 
@@ -130,4 +170,6 @@ When adding new contracts to the project, consider adding Certora specifications
 - For better SMT solver performance, adjust the timeout:
   ```json
   "smt_timeout": 1800
-  ``` 
+  ```
+
+- If your specification needs access to internal state, make sure your harness exposes all required state variables and functions 

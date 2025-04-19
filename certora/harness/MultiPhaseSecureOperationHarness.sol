@@ -71,7 +71,71 @@ contract MultiPhaseSecureOperationHarness {
         return MultiPhaseSecureOperation.BROADCASTER_ROLE;
     }
     
+    function OWNER_ROLE() public pure returns (bytes32) {
+        return MultiPhaseSecureOperation.OWNER_ROLE;
+    }
+    
+    function RECOVERY_ROLE() public pure returns (bytes32) {
+        return MultiPhaseSecureOperation.RECOVERY_ROLE;
+    }
+    
     function checkPermissionPermissive(bytes4 functionSelector) public view returns (bool) {
         return _secureState.checkPermissionPermissive(functionSelector);
+    }
+    
+    // Additional functions for better testing
+    
+    function getNonce() public view returns (uint256) {
+        return _secureState.getNonce();
+    }
+    
+    function getRoleAddress(bytes32 role) public view returns (address) {
+        return _secureState.roles[role];
+    }
+    
+    function hasRole(bytes32 role, address addr) public view returns (bool) {
+        return _secureState.hasRole(role, addr);
+    }
+    
+    function addRoleForFunction(bytes4 functionSelector, bytes32 role) public {
+        _secureState.addRoleForFunction(functionSelector, role);
+    }
+    
+    function removeRoleForFunction(bytes4 functionSelector, bytes32 role) public {
+        _secureState.removeRoleForFunction(functionSelector, role);
+    }
+    
+    function getTimeLockPeriod() public view returns (uint256) {
+        return _secureState.timeLockPeriodInMinutes;
+    }
+    
+    function getSupportedOperationTypes() public view returns (MultiPhaseSecureOperation.ReadableOperationType[] memory) {
+        return _secureState.getSupportedOperationTypes();
+    }
+    
+    function verifySignature(MultiPhaseSecureOperation.MetaTransaction memory metaTx) public view returns (bool) {
+        return _secureState.verifySignature(metaTx);
+    }
+    
+    function txApprovalWithMetaTx(MultiPhaseSecureOperation.MetaTransaction memory metaTx) public returns (MultiPhaseSecureOperation.TxRecord memory) {
+        return _secureState.txApprovalWithMetaTx(metaTx);
+    }
+    
+    function txCancellationWithMetaTx(MultiPhaseSecureOperation.MetaTransaction memory metaTx) public returns (MultiPhaseSecureOperation.TxRecord memory) {
+        return _secureState.txCancellationWithMetaTx(metaTx);
+    }
+    
+    function requestAndApprove(MultiPhaseSecureOperation.MetaTransaction memory metaTx) public returns (MultiPhaseSecureOperation.TxRecord memory) {
+        return _secureState.requestAndApprove(metaTx);
+    }
+    
+    // Utility function to create execution options
+    function createStandardExecutionOptions(bytes4 functionSelector, bytes memory params) public pure returns (bytes memory) {
+        return MultiPhaseSecureOperation.createStandardExecutionOptions(functionSelector, params);
+    }
+    
+    // Utility function to get raw state for debugging
+    function getSecureState() internal view returns (MultiPhaseSecureOperation.SecureOperationState storage) {
+        return _secureState;
     }
 } 
