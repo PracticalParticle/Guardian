@@ -135,7 +135,12 @@ contract MultiPhaseSecureOperationHarness {
     }
     
     // Utility function to get raw state for debugging
-    function getSecureState() internal view returns (MultiPhaseSecureOperation.SecureOperationState storage) {
-        return _secureState;
+    function getSecureState() public view returns (uint256, uint256, uint256) {
+        // Return non-mapping state variables for debugging
+        return (
+            _secureState.txCounter,
+            _secureState.metaTxNonce,
+            _secureState.timeLockPeriodInMinutes
+        );
     }
 } 
