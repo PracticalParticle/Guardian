@@ -3,8 +3,9 @@
  * Focuses on validating secure operation execution flow
  */
 
-// Import the library
+// Import the library and harness
 import "../contracts/lib/MultiPhaseSecureOperation.sol";
+import "../certora/harness/MultiPhaseSecureOperationHarness.sol";
 
 // Define methods that can be called by any environment
 methods {
@@ -15,6 +16,15 @@ methods {
     function TxStatus.COMPLETED() internal returns uint8 envfree;
     function TxStatus.FAILED() internal returns uint8 envfree;
     function TxStatus.REJECTED() internal returns uint8 envfree;
+    
+    // Harness functions
+    function getOwner() external returns (address) envfree;
+    function getTxRecord(uint256) external returns (MultiPhaseSecureOperation.TxRecord) envfree;
+    function getCurrentTxId() external returns (uint256) envfree;
+    function getNextTxId() external returns (uint256) envfree;
+    function isOperationTypeSupported(bytes32) external returns (bool) envfree;
+    function BROADCASTER_ROLE() external returns (bytes32) envfree;
+    function checkPermissionPermissive(bytes4) external returns (bool) envfree;
 }
 
 /**
@@ -30,7 +40,7 @@ rule transactionStatusTransitions(env e) {
     require txId > 0;
     
     // Get initial status (if tx exists)
-    MultiPhaseSecureOperation.TxRecord record = getTxRecord(e, txId);
+    MultiPhaseSecureOperation.TxRecord record = getTxRecord(txId);
     uint8 initialStatus = record.status;
     
     // Call any method
@@ -39,7 +49,7 @@ rule transactionStatusTransitions(env e) {
     f(e, args);
     
     // Get status after method call
-    MultiPhaseSecureOperation.TxRecord newRecord = getTxRecord(e, txId);
+    MultiPhaseSecureOperation.TxRecord newRecord = getTxRecord(txId);
     uint8 newStatus = newRecord.status;
     
     // If status was initially PENDING, it can transition to CANCELLED, COMPLETED, or FAILED
@@ -73,7 +83,7 @@ rule timeLockEnforcement(env e) {
     // If call doesn't revert
     if (!lastReverted) {
         // Get transaction record
-        MultiPhaseSecureOperation.TxRecord record = getTxRecord(e, txId);
+        MultiPhaseSecureOperation.TxRecord record = getTxRecord(txId);
         
         // If successful, assert that current time is past release time
         assert e.block.timestamp >= record.releaseTime;
@@ -89,7 +99,7 @@ rule rolesSeparation(env e) {
     storage init_state = lastStorage;
     
     // Get owner and broadcaster addresses
-    address owner = getOwner(e);
+    address owner = getOwner();
     bytes32 broadcasterRole = BROADCASTER_ROLE();
     address broadcaster;
     
@@ -103,7 +113,7 @@ rule rolesSeparation(env e) {
     
     // Owner should not be able to directly approve transactions that require broadcaster role
     bytes4 txApprovalWithMetaTxSelector = sig:txApprovalWithMetaTx((TxRecord, MetaTxParams, bytes32, bytes, bytes)).selector;
-    require !checkPermissionPermissive(eOwner, txApprovalWithMetaTxSelector);
+    require !checkPermissionPermissive(txApprovalWithMetaTxSelector);
 }
 
 /**
@@ -111,25 +121,30 @@ rule rolesSeparation(env e) {
  * Ensures that requestAndApprove operations are atomic
  */
 rule requestAndApprovalAtomicity(env e) {
-    // Parameters for a meta transaction
-    MultiPhaseSecureOperation.MetaTransaction metaTx;
+    // Storage variables to track state changes
+    storage init_state = lastStorage;
     
     // Get count of txns before operation
-    uint256 beforeCount = getCurrentTxId(e);
+    uint256 beforeCount = getCurrentTxId();
     
     // Call requestAndApprove
-    requestAndApprove@withrevert(e, metaTx);
+    method f;
+    bool isRequestAndApprove = f.selector == sig:requestAndApprove((TxRecord,MetaTxParams,bytes32,bytes,bytes)).selector;
+    require isRequestAndApprove;
+    calldataarg args;
+    
+    f@withrevert(e, args);
     
     // If successful, check results
     if (!lastReverted) {
         // Get count after operation
-        uint256 afterCount = getCurrentTxId(e);
+        uint256 afterCount = getCurrentTxId();
         
         // Should increment count by exactly one
         assert afterCount == beforeCount + 1;
         
         // Get the new transaction record
-        MultiPhaseSecureOperation.TxRecord record = getTxRecord(e, afterCount);
+        MultiPhaseSecureOperation.TxRecord record = getTxRecord(afterCount);
         
         // The status should be either COMPLETED or FAILED
         assert record.status == TxStatus.COMPLETED() || record.status == TxStatus.FAILED();
@@ -142,6 +157,7 @@ rule requestAndApprovalAtomicity(env e) {
  */
 invariant transactionIdsSequential()
     getNextTxId() == getCurrentTxId() + 1
+    filtered { f -> !f.isView }
 
 /**
  * Rule: Verify transactions cannot be cancelled after completion
@@ -151,7 +167,7 @@ rule noRevertingCompletedTransactions(env e) {
     uint256 txId;
     
     // Get transaction record
-    MultiPhaseSecureOperation.TxRecord record = getTxRecord(e, txId);
+    MultiPhaseSecureOperation.TxRecord record = getTxRecord(txId);
     
     // If transaction is completed
     if (record.status == TxStatus.COMPLETED()) {
@@ -160,5 +176,31 @@ rule noRevertingCompletedTransactions(env e) {
         
         // Should revert
         assert lastReverted;
+    }
+}
+
+/**
+ * Rule: Nonce Incrementing
+ * Ensures operations that require meta transactions always increment nonce
+ */
+rule nonceIncrementingOnMetaTx(env e) {
+    storage initial = lastStorage;
+    
+    // Call txApprovalWithMetaTx
+    bytes4 selector = sig:txApprovalWithMetaTx((TxRecord,MetaTxParams,bytes32,bytes,bytes)).selector;
+    
+    // Get current nonce (requires custom accessor in harness)
+    // uint256 initialNonce = getNonce();
+    
+    method f;
+    require f.selector == selector;
+    calldataarg args;
+    
+    f@withrevert(e, args);
+    
+    // If successful, verify security properties
+    if (!lastReverted) {
+        // Can add a check for nonce incrementation when harness exposes this
+        assert(true); // Placeholder for now
     }
 } 

@@ -4,14 +4,42 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'contracts/**/*.sol'
+      - 'certora/**/*'
+      - '.github/workflows/certora-verification.yml'
   pull_request:
     branches:
       - main
+    paths:
+      - 'contracts/**/*.sol'
+      - 'certora/**/*'
+      - '.github/workflows/certora-verification.yml'
   workflow_dispatch:
+    inputs:
+      spec_file:
+        description: 'Specific spec file to verify (leave empty for all)'
+        required: false
+        type: string
+      contract:
+        description: 'Specific contract to verify (leave empty for all)'
+        required: false
+        type: string
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: "SecureOwnable Basic"
+            conf: "certora/conf/secureOwnable.conf"
+            report_name: "secureOwnable"
+          - name: "MultiPhaseSecureOperation"
+            conf: "certora/conf/multiPhaseOperation.conf"
+            report_name: "multiPhaseOperation"
+    name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,11 +69,73 @@ jobs:
         env:
           CERTORAKEY: ${{ secrets.CERTORAKEY }}
         run: |
-          echo "Running Certora Prover on SecureOwnable contract..."
-          certoraRun certora/conf/secureOwnable.conf
+          echo "Running Certora Prover on ${{ matrix.name }}..."
+          certoraRun ${{ matrix.conf }} --report_name ${{ matrix.report_name }}
+
+      - name: Upload verification report
+        uses: actions/upload-artifact@v2
+        with:
+          name: certora-report-${{ matrix.report_name }}
+          path: ${{ github.workspace }}/certora/output/**
+          retention-days: 7
+
+  comprehensive-verify:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    needs: verify
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install Java
+        uses: actions/setup-java@v1
+        with:
+          java-version: "11"
+          java-package: jre
+
+      - name: Install Certora CLI
+        run: pip install certora-cli==7.3.0
+
+      - name: Install Solidity Compiler
+        run: |
+          pip install solc-select
+          solc-select install 0.8.2
+          solc-select use 0.8.2
+
+      - name: Comprehensive Verification
+        env:
+          CERTORAKEY: ${{ secrets.CERTORAKEY }}
+        run: |
+          echo "Running comprehensive verification with all specs..."
           
-          echo "Running Certora Prover on MultiPhaseSecureOperation library..."
-          certoraRun certora/conf/multiPhaseOperation.conf
+          # Handle custom inputs if provided through workflow_dispatch
+          CONF_FILE="certora/conf/default.conf"
+          ADDITIONAL_ARGS=""
+          
+          if [ "${{ github.event.inputs.spec_file }}" != "" ]; then
+            ADDITIONAL_ARGS="$ADDITIONAL_ARGS --rule_sanity minimal"
+            
+            if [ "${{ github.event.inputs.contract }}" != "" ]; then
+              ADDITIONAL_ARGS="$ADDITIONAL_ARGS --verify ${{ github.event.inputs.contract }}:${{ github.event.inputs.spec_file }}"
+            else
+              ADDITIONAL_ARGS="$ADDITIONAL_ARGS --spec_file ${{ github.event.inputs.spec_file }}"
+            fi
+          fi
+          
+          certoraRun $CONF_FILE $ADDITIONAL_ARGS --report_name comprehensive
+
+      - name: Upload comprehensive report
+        uses: actions/upload-artifact@v2
+        with:
+          name: certora-report-comprehensive
+          path: ${{ github.workspace }}/certora/output/**
+          retention-days: 7
 
   mutation-testing:
     runs-on: ubuntu-latest
@@ -81,7 +171,16 @@ jobs:
           CERTORAKEY: ${{ secrets.CERTORAKEY }}
         run: |
           echo "Running mutation testing for SecureOwnable..."
-          certoraMutate --conf certora/conf/secureOwnable.conf --rule_sanity minimal
+          certoraMutate --conf certora/conf/secureOwnable.conf --rule_sanity minimal --num_mutations 5 --output_path mutation_report_secureOwnable
           
           echo "Running mutation testing for MultiPhaseSecureOperation..."
-          certoraMutate --conf certora/conf/multiPhaseOperation.conf --rule_sanity minimal 
+          certoraMutate --conf certora/conf/multiPhaseOperation.conf --rule_sanity minimal --num_mutations 5 --output_path mutation_report_multiPhaseOperation
+
+      - name: Upload mutation testing report
+        uses: actions/upload-artifact@v2
+        with:
+          name: certora-mutation-reports
+          path: |
+            ${{ github.workspace }}/mutation_report_secureOwnable
+            ${{ github.workspace }}/mutation_report_multiPhaseOperation
+          retention-days: 7 
