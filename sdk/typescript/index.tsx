@@ -31,6 +31,7 @@ export * from './types/workflow.index';
 export * from './utils/validations';
 export * from './utils/erc20/erc20Token';
 export { MetaTransactionSigner, MetaTransactionBuilder } from './utils/metaTx/metaTransaction';
+export * from './utils/contract-errors';
 
 // Re-export commonly used types from viem
 export type { Address, Hex, PublicClient, WalletClient, Chain } from 'viem';
