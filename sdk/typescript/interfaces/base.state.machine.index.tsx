@@ -1,5 +1,5 @@
 import { Address, Hex } from 'viem';
-import { TransactionResult, TransactionOptions } from './base.index';
+// import { TransactionResult, TransactionOptions } from './base.index';
 import { TxRecord, MetaTransaction, MetaTxParams } from './lib.index';
 import { ExecutionType, TxAction } from '../types/lib.index';
 

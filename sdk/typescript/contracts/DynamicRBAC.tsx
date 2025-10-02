@@ -3,7 +3,7 @@ import DynamicRBACABIJson from '../../../abi/DynamicRBAC.abi.json';
 import { TransactionOptions, TransactionResult } from '../interfaces/base.index';
 import { IDynamicRBAC } from '../interfaces/core.access.index';
 import { TxAction } from '../types/lib.index';
-import { DYNAMIC_RBAC_FUNCTION_SELECTORS } from '../types/core.access.index';
+// import { DYNAMIC_RBAC_FUNCTION_SELECTORS } from '../types/core.access.index';
 import { BaseStateMachine } from './BaseStateMachine';
 
 /**

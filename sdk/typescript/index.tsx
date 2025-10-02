@@ -19,9 +19,9 @@ export * from './interfaces/workflow.index';
 // Types and Constants
 export { 
   OPERATION_TYPES, 
-  OperationType, 
   DYNAMIC_RBAC_FUNCTION_SELECTORS
 } from './types/core.access.index';
+export type { OperationType } from './types/core.access.index';
 export * from './types/base.state.machine.index';
 export * from './types/lib.index';
 export * from './types/definition.index';

@@ -1,5 +1,5 @@
 import { Address, PublicClient, WalletClient, Chain, Hex } from 'viem';
-import BaseStateMachineABIJson from '../../../abi/BaseStateMachine.abi.json';
+// import BaseStateMachineABIJson from '../../../abi/BaseStateMachine.abi.json';
 import { TransactionOptions, TransactionResult } from '../interfaces/base.index';
 import { IBaseStateMachine } from '../interfaces/base.state.machine.index';
 import { TxRecord, MetaTransaction, MetaTxParams } from '../interfaces/lib.index';
@@ -65,7 +65,9 @@ export abstract class BaseStateMachine implements IBaseStateMachine {
       address: this.contractAddress,
       abi: this.abi,
       functionName,
-      args
+      args,
+      // Include account for permission checks if wallet client is available
+      account: this.walletClient?.account
     });
 
     return result as T;
